@@ -26,6 +26,7 @@ export class Input {
     window.addEventListener('blur', this._onBlur);
 
     const el = target || window;
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
     el.addEventListener('mousedown', (e) => {
       this.mouse.down = true;
       this.mouse.buttons = e.buttons;
