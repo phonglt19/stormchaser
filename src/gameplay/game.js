@@ -167,7 +167,7 @@ export class Game {
     }
     const d = tornado.distanceTo(this.vehicle.pos.x, this.vehicle.pos.z);
     if (this.probes.count === 0) return 'Deploy a probe in the tornado path (E)';
-    if (this.probes.probes.every((p) => p.intercepted)) return 'Film the vortex — keep it framed (F)';
+    if (this.probes.probes.some((p) => p.intercepted)) return 'Film the vortex — keep it framed (F)';
     if (d > 1500) return `Close the gap — ${(d / 1000).toFixed(1)} km to the core`;
     const near = this.probes.probes.reduce((m, p) => Math.min(m, Math.hypot(p.x - tornado.x, p.z - tornado.z)), Infinity);
     if (near > 400) return 'Reposition probes closer to the core';
