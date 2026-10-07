@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KEYSOTA — Storm Chaser</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='25' font-size='25'%3E%F0%9F%8C%AA%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div id="app">
+  <canvas id="scene"></canvas>
+
+  <!-- ================= HUD ================= -->
+  <div id="hud" class="hidden">
+    <div id="vignette"></div>
+    <div id="damageFlash"></div>
+    <div id="crosshair">
+      <div class="ch-ring"></div>
+      <div class="ch-dot"></div>
+      <div id="filmDot"></div>
+    </div>
+
+    <div id="topLeft">
+      <div class="panel">
+        <div class="row">
+          <span class="label">SCORE</span>
+          <span id="scoreVal" class="value big">0</span>
+        </div>
+        <div class="row">
+          <span class="label">OBJECTIVE</span>
+          <span id="objective" class="value small">Intercept the supercell</span>
+        </div>
+        <div class="row">
+          <span class="label">TIME</span>
+          <span id="missionTimer" class="value">00:00</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="topRight">
+      <div class="panel radarPanel">
+        <div class="radarHead">
+          <span>DOPPLER</span><span id="radarRange">3.0 km</span>
+        </div>
+        <canvas id="radar" width="240" height="240"></canvas>
+      </div>
+    </div>
+
+    <div id="bottomLeft">
+      <div class="panel">
+        <div class="gaugeRow">
+          <span class="label">SPEED</span>
+          <span class="value"><span id="speedVal">0</span><span class="unit"> mph</span></span>
+        </div>
+        <div class="bar"><div id="speedFill" class="fill speed"></div></div>
+        <div class="gaugeRow">
+          <span class="label">CHASSIS</span>
+          <span class="value"><span id="integrityVal">100</span><span class="unit"> %</span></span>
+        </div>
+        <div class="bar"><div id="integrityFill" class="fill integrity"></div></div>
+        <div class="gaugeRow">
+          <span class="label">CAMERA</span>
+          <span class="value small" id="camMode">CHASE</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="bottomRight">
+      <div class="panel">
+        <div class="stormHead">
+          <span id="stormStatus">SUPERCELL</span>
+          <span id="efBadge" class="ef ef-none">—</span>
+        </div>
+        <div class="readGrid">
+          <span class="label">WIND</span><span class="value"><span id="windVal">0</span><span class="unit"> mph</span></span>
+          <span class="label">RANGE</span><span class="value"><span id="distVal">--</span><span class="unit"> mi</span></span>
+          <span class="label">BEARING</span>
+          <span class="value bearing">
+            <span id="bearingVal">--</span>
+            <span id="bearingArrow" class="arrow">▲</span>
+          </span>
+          <span class="label">PROBES</span><span class="value"><span id="probeVal">0</span><span class="unit"> / 8</span></span>
+        </div>
+        <div class="gaugeRow">
+          <span class="label">FOOTAGE</span>
+          <span class="value"><span id="footageVal">0</span><span class="unit"> s</span></span>
+        </div>
+        <div class="bar"><div id="footageFill" class="fill footage"></div></div>
+      </div>
+    </div>
+
+    <div id="toasts"></div>
+
+    <div id="stormBanner" class="hidden">
+      <span class="tornadoIcon">🌪</span>
+      <div>
+        <div class="bannerTitle">TORNADO WARNING</div>
+        <div class="bannerSub" id="bannerSub">Take shelter or intercept</div>
+      </div>
+    </div>
+
+    <div id="probePrompt" class="hidden">
+      <kbd>E</kbd> deploy probe &nbsp;·&nbsp; <kbd>F</kbd> film &nbsp;·&nbsp; <kbd>C</kbd> camera &nbsp;·&nbsp; <kbd>R</kbd> recover
+    </div>
+  </div>
+
+  <!-- ================= LOADING ================= -->
+  <div id="loading" class="overlay">
+    <div class="loadInner">
+      <div class="brand">KEYSOTA</div>
+      <div class="brandSub">STORM CHASER</div>
+      <div class="loadBarWrap"><div id="loadBar" class="loadBar"></div></div>
+      <div id="loadText" class="loadText">Surveying the plains…</div>
+    </div>
+  </div>
+
+  <!-- ================= MAIN MENU ================= -->
+  <div id="menu" class="overlay hidden">
+    <div class="menuInner">
+      <div class="brand">KEYSOTA</div>
+      <div class="brandSub">STORM CHASER</div>
+      <div class="missionCard">
+        <div class="missionTitle">OUTBREAK DAY — KEYSOTA COUNTY</div>
+        <p>
+          A violent supercell outbreak is moving across the plains. You are a storm chaser
+          with a reinforced intercept vehicle, a rack of instrument probes and a camera.
+          Drive into the notch, deploy probes in the tornado's path, film the vortex, and
+          get out alive.
+        </p>
+        <ul>
+          <li><b>Deploy probes</b> (<kbd>E</kbd>) — a probe in the tornado's path scores big.</li>
+          <li><b>Film the tornado</b> (<kbd>F</kbd>) — keep it framed to bank footage.</li>
+          <li><b>Intercept</b> — get close to the core for bonus data, but the wind will wreck you.</li>
+          <li><b>Survive</b> — 0% chassis ends the chase.</li>
+        </ul>
+      </div>
+      <div class="controlsGrid">
+        <div><kbd>W</kbd> / <kbd>↑</kbd> throttle</div>
+        <div><kbd>S</kbd> / <kbd>↓</kbd> brake / reverse</div>
+        <div><kbd>A</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>→</kbd> steer</div>
+        <div><kbd>Shift</kbd> boost</div>
+        <div><kbd>Space</kbd> handbrake</div>
+        <div><kbd>E</kbd> deploy probe</div>
+        <div><kbd>F</kbd> film</div>
+        <div><kbd>C</kbd> cycle camera</div>
+        <div><kbd>R</kbd> recover vehicle</div>
+        <div><kbd>M</kbd> mute audio</div>
+        <div><kbd>Esc</kbd> / <kbd>P</kbd> pause</div>
+        <div>Mouse drag — look around</div>
+      </div>
+      <button id="startBtn" class="cta">START CHASE</button>
+      <div class="fine">Built with Three.js · procedurally generated · headphones recommended</div>
+    </div>
+  </div>
+
+  <!-- ================= PAUSE ================= -->
+  <div id="pause" class="overlay hidden">
+    <div class="menuInner small">
+      <div class="brand smallBrand">PAUSED</div>
+      <div class="pauseStats" id="pauseStats"></div>
+      <button id="resumeBtn" class="cta">RESUME</button>
+      <button id="restartBtn" class="cta ghost">RESTART CHASE</button>
+    </div>
+  </div>
+
+  <!-- ================= GAME OVER ================= -->
+  <div id="gameover" class="overlay hidden">
+    <div class="menuInner">
+      <div class="brand smallBrand" id="goTitle">CHASSIS DESTROYED</div>
+      <div class="goStats" id="goStats"></div>
+      <button id="againBtn" class="cta">CHASE AGAIN</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
