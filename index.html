@@ -63,6 +63,10 @@
           <span class="label">CAMERA</span>
           <span class="value small" id="camMode">CHASE</span>
         </div>
+        <div class="gaugeRow rigRow">
+          <span class="label">RIG</span>
+          <span class="value small" id="rigName">INTERCEPT</span>
+        </div>
       </div>
     </div>
 
@@ -149,6 +153,11 @@
         <div><kbd>Esc</kbd> / <kbd>P</kbd> pause</div>
         <div>Mouse drag — look around</div>
       </div>
+      <div class="vehiclePick">
+        <button class="pick" data-vehicle="intercept"><b>INTERCEPT</b><span>Balanced chase rig</span></button>
+        <button class="pick" data-vehicle="joker2"><b>JOKER II</b><span>Spiked 30,000 lb interceptor</span></button>
+      </div>
+      <div id="pickBlurb" class="pickBlurb"></div>
       <button id="startBtn" class="cta">START CHASE</button>
       <div class="fine">Built with Three.js · procedurally generated · headphones recommended</div>
     </div>

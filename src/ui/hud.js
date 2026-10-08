@@ -14,6 +14,7 @@ export class HUD {
       integrity: document.getElementById('integrityVal'),
       integrityFill: document.getElementById('integrityFill'),
       camMode: document.getElementById('camMode'),
+      rig: document.getElementById('rigName'),
       stormStatus: document.getElementById('stormStatus'),
       efBadge: document.getElementById('efBadge'),
       wind: document.getElementById('windVal'),
@@ -81,7 +82,8 @@ export class HUD {
     this.el.speed.textContent = String(Math.round(speedMph));
     this.el.speedFill.style.width = `${clamp(speedMph / 145, 0, 1) * 100}%`;
 
-    const integrity = clamp(vehicle.integrity, 0, 100);
+    const integrityMax = vehicle.tuning ? vehicle.tuning.integrityMax : 100;
+    const integrity = clamp((vehicle.integrity / integrityMax) * 100, 0, 100);
     this.el.integrity.textContent = String(Math.round(integrity));
     this.el.integrityFill.style.width = `${integrity}%`;
     this.el.integrityFill.style.background =
@@ -91,6 +93,7 @@ export class HUD {
     this.el.objective.textContent = game.objective;
     this.el.timer.textContent = formatClock(game.elapsed);
     this.el.camMode.textContent = vehicle.camModeName || 'CHASE';
+    this.el.rig.textContent = vehicle.modelLabel || 'INTERCEPT';
     this.el.probes.textContent = String(game.probes.count);
     this.el.footage.textContent = String(Math.floor(game.footage));
     this.el.footageFill.style.width = `${clamp(game.filmTime / 4, 0, 1) * 100}%`;

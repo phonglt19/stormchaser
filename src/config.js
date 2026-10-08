@@ -23,6 +23,39 @@ export const VEHICLE = {
   rideHeight: 0.95,
   integrityMax: 100,
   crashSpeed: 26,      // impact speed that starts hurting (m/s)
+  windPush: 0.55,      // fraction of vortex wind transferred to the chassis
+  windClamp: 22,       // cap on accumulated wind velocity (m/s)
+};
+
+// Selectable player rigs. Each entry supplies a label and a full tuning set
+// (VEHICLE with per-model overrides). Geometry lives in entities/vehicleModels.js.
+export const DEFAULT_VEHICLE = 'intercept';
+
+export const VEHICLE_MODELS = {
+  intercept: {
+    id: 'intercept',
+    label: 'INTERCEPT',
+    blurb: 'Balanced reinforced chase rig — quick, nimble, road-legal.',
+    hasSpikes: false,
+    tuning: { ...VEHICLE },
+  },
+  joker2: {
+    id: 'joker2',
+    label: 'JOKER II',
+    blurb: 'Spiked 30,000 lb interceptor — slow, but the storm cannot move it.',
+    hasSpikes: true,
+    tuning: {
+      ...VEHICLE,
+      maxSpeed: 52,
+      boostSpeed: 66,
+      accel: 11.5,
+      steerRate: 1.8,
+      windPush: 0.26,
+      windClamp: 12,
+      integrityMax: 140,
+      crashSpeed: 30,
+    },
+  },
 };
 
 export const STORM = {

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FOG, CAMERA_MODES, SCORE } from './config.js';
+import { FOG, CAMERA_MODES, SCORE, DEFAULT_VEHICLE } from './config.js';
 import { makeRng } from './core/rng.js';
 import { clamp } from './core/math.js';
 import { Input } from './core/input.js';
@@ -61,7 +61,7 @@ const scenery = new Scenery(terrain, 4242);
 const sky = new Sky();
 scene.add(sky.group);
 
-const vehicle = new Vehicle(terrain, scenery);
+const vehicle = new Vehicle(terrain, scenery, params.get('vehicle') || DEFAULT_VEHICLE);
 vehicle.reset(START);
 scene.add(vehicle.group);
 
@@ -80,6 +80,7 @@ const menu = new Menu({
   onStart: () => startRun(),
   onResume: () => resumeGame(),
   onRestart: () => startRun(),
+  onSelectVehicle: (id) => selectVehicle(id),
 });
 
 const game = new Game(vehicle, storms, probes, hud, audio);
@@ -128,6 +129,7 @@ async function boot() {
     applyDevOverrides();
   } else {
     menu.showMain(true);
+    menu.setVehicle(vehicle.modelId);
   }
   frame();
 }
@@ -154,6 +156,11 @@ function applyDevOverrides() {
 }
 
 // ---------------------------------------------------------------- run control
+function selectVehicle(id) {
+  if (state !== 'menu') return;
+  if (vehicle.setModel(id)) menu.setVehicle(id);
+}
+
 function startRun() {
   audio.init();
   audio.resume();
@@ -351,6 +358,7 @@ if (import.meta.env.DEV) {
         dist: Math.round(s.tornado.distanceTo(vehicle.pos.x, vehicle.pos.z)),
       })),
       vehicle: {
+        model: vehicle.modelId,
         x: Math.round(vehicle.pos.x),
         z: Math.round(vehicle.pos.z),
         speed: Number(vehicle.speed.toFixed(1)),

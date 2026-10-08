@@ -42,6 +42,17 @@ npm run preview  # serve the production build
 | `Esc` / `P` | Pause |
 | `M` | Mute audio |
 
+## Vehicles
+
+Two rigs can be chosen from the main menu (the pick persists across restarts):
+
+| Rig | Handling |
+| --- | --- |
+| **Intercept** | Balanced reinforced chase rig — quick and nimble. |
+| **Joker II** | A spiked ~30,000 lb interceptor: slower and heavier, but it shrugs off the tornado's wind push. Hold the handbrake while stopped to deploy its eight ground-anchor spikes. |
+
+`?vehicle=joker2` starts a run with the Joker II.
+
 ## How you score
 
 - **Footage** — hold `F` with the tornado framed and in range. The stronger the
@@ -81,6 +92,7 @@ src/
     rain.js           camera-anchored rain streaks and forked lightning
   entities/
     vehicle.js        arcade car physics, chase-vehicle model, camera rig
+    vehicleModels.js  procedural vehicle models (Intercept, Joker II) + dimensions
     probes.js         probe meshes, deployment, measurement, intercept detection
   gameplay/
     game.js           objective, scoring, storm warnings, damage, mission stats
@@ -117,5 +129,6 @@ page with `k` bound to the dev handle (`k.input`, `k.vehicle`, `k.storms`,
 | `?quick=1` | Tornado touches down ~2 s after spawn |
 | `?close=1` | Place the storm right ahead of the vehicle |
 | `?seed=N` | Seed the outbreak generator |
+| `?vehicle=joker2` | Start with the Joker II interceptor instead of the default rig |
 
 These only exist in the dev build; `window.__keysota` is stripped from production.

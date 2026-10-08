@@ -16,12 +16,25 @@ export class Menu {
       resume: document.getElementById('resumeBtn'),
       restart: document.getElementById('restartBtn'),
       again: document.getElementById('againBtn'),
+      picks: [...document.querySelectorAll('.pick')],
+      pickBlurb: document.getElementById('pickBlurb'),
     };
 
     this.el.start.addEventListener('click', () => this.h.onStart());
     this.el.resume.addEventListener('click', () => this.h.onResume());
     this.el.restart.addEventListener('click', () => this.h.onRestart());
     this.el.again.addEventListener('click', () => this.h.onRestart());
+    for (const el of this.el.picks) {
+      el.addEventListener('click', () => this.h.onSelectVehicle(el.dataset.vehicle));
+    }
+  }
+
+  setVehicle(id) {
+    for (const el of this.el.picks) {
+      const active = el.dataset.vehicle === id;
+      el.classList.toggle('active', active);
+      if (active) this.el.pickBlurb.textContent = el.querySelector('span').textContent;
+    }
   }
 
   setLoading(p, text) {

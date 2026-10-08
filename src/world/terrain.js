@@ -118,7 +118,7 @@ export class Terrain {
     const lanePos = [];
     const laneIdx = [];
     const step = 14;
-    const yOff = 0.5;
+    const yOff = 0.1;
     const h = (x, z) => this.height(x, z) + yOff;
 
     const strip = (ax, az, bx, bz) => {

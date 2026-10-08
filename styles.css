@@ -196,6 +196,22 @@ kbd {
   color: #eef3ee; font-family: var(--mono);
 }
 
+.vehiclePick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.pick {
+  pointer-events: auto; cursor: pointer; text-align: left;
+  display: flex; flex-direction: column; gap: 3px;
+  background: rgba(10,14,16,0.6); border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 3px; padding: 10px 12px; font-family: var(--mono);
+  color: rgba(216,224,216,0.8); transition: all 140ms ease;
+}
+.pick b { font-size: 13px; letter-spacing: 0.18em; color: #eef3ee; }
+.pick span { font-size: 10px; letter-spacing: 0.04em; color: rgba(216,224,216,0.5); }
+.pick:hover { border-color: rgba(255,179,71,0.5); }
+.pick.active { border-color: var(--amber); background: rgba(255,179,71,0.12); box-shadow: 0 0 20px rgba(255,179,71,0.18); }
+.pick.active b { color: var(--amber); }
+.pickBlurb { font-size: 11px; color: rgba(216,224,216,0.6); margin-bottom: 22px; min-height: 15px; letter-spacing: 0.04em; }
+.rigRow { margin-top: 8px; }
+
 .cta {
   pointer-events: auto; cursor: pointer;
   background: linear-gradient(180deg, rgba(255,179,71,0.18), rgba(255,179,71,0.06));

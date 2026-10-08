@@ -1,16 +1,15 @@
 import * as THREE from 'three';
-import { VEHICLE, CAMERA_MODES } from '../config.js';
-import { clamp, damp, msToMph, TAU } from '../core/math.js';
-
-const WHEEL_R = 0.58;
-const TRACK = 1.22;
-const WHEELBASE = 1.72;
+import { VEHICLE_MODELS, DEFAULT_VEHICLE, CAMERA_MODES } from '../config.js';
+import { clamp, damp, msToMph } from '../core/math.js';
+import { buildVehicleModel } from './vehicleModels.js';
 
 export class Vehicle {
-  constructor(terrain, scenery) {
+  constructor(terrain, scenery, modelId = DEFAULT_VEHICLE) {
     this.terrain = terrain;
     this.scenery = scenery;
     this.colliders = scenery ? scenery.colliders : [];
+    this.modelId = VEHICLE_MODELS[modelId] ? modelId : DEFAULT_VEHICLE;
+    this._applyModelConfig();
 
     this.pos = new THREE.Vector3(0, 0, 0);
     this.heading = -Math.PI / 2;
@@ -18,7 +17,7 @@ export class Vehicle {
     this.lateralVel = 0;
     this.windVel = new THREE.Vector2();
     this.steerSmooth = 0;
-    this.integrity = VEHICLE.integrityMax;
+    this.integrity = this.tuning.integrityMax;
     this.disabled = false;
     this.throttleInput = 0;
     this.strobe = 0;
@@ -40,7 +39,41 @@ export class Vehicle {
     this.body = new THREE.Group();
     this.group.add(this.body);
     this.wheels = [];
+    this.strobes = [];
+    this.spikes = [];
+    this.radar = null;
+    this.anemometer = null;
+    this.spikeDeploy = 0;
     this._build();
+  }
+
+  _applyModelConfig() {
+    const def = VEHICLE_MODELS[this.modelId] || VEHICLE_MODELS[DEFAULT_VEHICLE];
+    this.tuning = def.tuning;
+    this.modelLabel = def.label;
+    this.hasSpikes = def.hasSpikes;
+  }
+
+  _disposeModel() {
+    this.group.traverse((o) => {
+      if (!o.isMesh) return;
+      if (o.geometry) o.geometry.dispose();
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) if (m) m.dispose();
+    });
+  }
+
+  setModel(id) {
+    if (!VEHICLE_MODELS[id] || id === this.modelId) return false;
+    this.modelId = id;
+    this._disposeModel();
+    this.group.clear();
+    this.body = new THREE.Group();
+    this.group.add(this.body);
+    this._applyModelConfig();
+    this.integrity = Math.min(this.integrity, this.tuning.integrityMax);
+    this._build();
+    return true;
   }
 
   get position() {
@@ -61,122 +94,7 @@ export class Vehicle {
 
   // -----------------------------------------------------------------
   _build() {
-    const matBody = new THREE.MeshStandardMaterial({ color: 0x3a424c, roughness: 0.62, metalness: 0.12, flatShading: true });
-    const matDark = new THREE.MeshStandardMaterial({ color: 0x1b2026, roughness: 0.85, metalness: 0.08, flatShading: true });
-    const matAccent = new THREE.MeshStandardMaterial({ color: 0xe0621f, roughness: 0.6, metalness: 0.05, flatShading: true });
-    const matTire = new THREE.MeshStandardMaterial({ color: 0x1c1f23, roughness: 0.95 });
-    const matRim = new THREE.MeshStandardMaterial({ color: 0xaab3bb, roughness: 0.42, metalness: 0.55 });
-
-    const length = 5.4;
-    const width = 2.4;
-
-    const chassis = new THREE.Mesh(new THREE.BoxGeometry(length, 1.15, width), matBody);
-    chassis.position.y = 0.95;
-    chassis.castShadow = true;
-    this.body.add(chassis);
-
-    const nose = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.55, width * 0.92), matAccent);
-    nose.position.set(length / 2 + 0.4, 0.78, 0);
-    nose.rotation.z = -0.16;
-    nose.castShadow = true;
-    this.body.add(nose);
-
-    const bumper = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, width * 1.04), matDark);
-    bumper.position.set(length / 2 + 0.2, 0.62, 0);
-    bumper.castShadow = true;
-    this.body.add(bumper);
-
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.95, width * 0.88), matDark);
-    cabin.position.set(-0.35, 1.95, 0);
-    cabin.castShadow = true;
-    this.body.add(cabin);
-
-    const windshield = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.72, width * 0.76), new THREE.MeshStandardMaterial({ color: 0x111820, roughness: 0.18, metalness: 0.25 }));
-    windshield.position.set(0.95, 1.98, 0);
-    windshield.rotation.z = -0.42;
-    this.body.add(windshield);
-
-    // roof rack + instrument mast
-    const rack = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, width * 0.9), matDark);
-    rack.position.set(-0.4, 2.48, 0);
-    this.body.add(rack);
-
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.5, 6), matRim);
-    mast.position.set(-1.3, 3.2, 0.6);
-    this.body.add(mast);
-    const cups = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.28, 8), matAccent);
-    cups.position.set(-1.3, 3.95, 0.6);
-    this.body.add(cups);
-
-    // spinning radar dish
-    this.radar = new THREE.Group();
-    const dish = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 8, 0, TAU, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x878f97, roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide }));
-    dish.rotation.x = -1.15;
-    this.radar.add(dish);
-    this.radar.position.set(-1.1, 2.75, -0.65);
-    this.body.add(this.radar);
-
-    // light bar with strobes
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.22, 0.34), matDark);
-    bar.position.set(0.75, 2.65, 0);
-    this.body.add(bar);
-    this.strobes = [];
-    for (let i = 0; i < 2; i++) {
-      const lens = new THREE.Mesh(
-        new THREE.BoxGeometry(0.5, 0.2, 0.3),
-        new THREE.MeshStandardMaterial({ color: i === 0 ? 0x220505 : 0x05051f, emissive: i === 0 ? 0xff2200 : 0x2255ff, emissiveIntensity: 1.6 })
-      );
-      lens.position.set(0.5 + i * 0.55, 2.67, 0);
-      this.body.add(lens);
-      this.strobes.push(lens);
-    }
-
-    // armor plating
-    for (const s of [-1, 1]) {
-      const plate = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.62, 0.16), matAccent);
-      plate.position.set(-0.1, 1.1, (width / 2) * s);
-      plate.castShadow = true;
-      this.body.add(plate);
-    }
-
-    // windows band
-    const band = new THREE.Mesh(new THREE.BoxGeometry(2.56, 0.52, width * 0.9), new THREE.MeshStandardMaterial({ color: 0x141c24, roughness: 0.16, metalness: 0.3 }));
-    band.position.set(-0.35, 1.98, 0);
-    this.body.add(band);
-
-    // tail lights
-    for (const s of [-1, 1]) {
-      const tl = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.22, 0.4), new THREE.MeshStandardMaterial({ color: 0x330606, emissive: 0xff2a2a, emissiveIntensity: 1.1 }));
-      tl.position.set(-length / 2 - 0.08, 1.0, s * 0.7);
-      this.body.add(tl);
-    }
-
-    // wheels
-    const tireGeo = new THREE.CylinderGeometry(WHEEL_R, WHEEL_R, 0.44, 14);
-    tireGeo.rotateX(Math.PI / 2);
-    const rimGeo = new THREE.CylinderGeometry(WHEEL_R * 0.55, WHEEL_R * 0.55, 0.46, 8);
-    rimGeo.rotateX(Math.PI / 2);
-    const positions = [
-      [WHEELBASE, -TRACK, true],
-      [WHEELBASE, TRACK, true],
-      [-WHEELBASE, -TRACK, false],
-      [-WHEELBASE, TRACK, false],
-    ];
-    for (const [x, z, isFront] of positions) {
-      const pivot = new THREE.Group();
-      pivot.position.set(x, WHEEL_R, z);
-      const tire = new THREE.Mesh(tireGeo, matTire);
-      tire.castShadow = true;
-      const rim = new THREE.Mesh(rimGeo, matRim);
-      tire.add(rim);
-      pivot.add(tire);
-      this.group.add(pivot);
-      this.wheels.push({ pivot, tire, isFront });
-    }
-
-    this.group.traverse((o) => {
-      if (o.isMesh) o.receiveShadow = true;
-    });
+    buildVehicleModel(this, this.modelId);
   }
 
   // -----------------------------------------------------------------
@@ -186,19 +104,19 @@ export class Vehicle {
     this.speed = 0;
     this.lateralVel = 0;
     this.windVel.set(0, 0);
-    this.integrity = VEHICLE.integrityMax;
+    this.integrity = this.tuning.integrityMax;
     this.disabled = false;
     this.heading = -Math.PI / 2;
     this.camYaw = 0;
   }
 
   damage(amount) {
-    this.integrity = clamp(this.integrity - amount, 0, VEHICLE.integrityMax);
+    this.integrity = clamp(this.integrity - amount, 0, this.tuning.integrityMax);
     if (this.integrity <= 0) this.disabled = true;
   }
 
   repair(amount) {
-    this.integrity = clamp(this.integrity + amount, 0, VEHICLE.integrityMax);
+    this.integrity = clamp(this.integrity + amount, 0, this.tuning.integrityMax);
   }
 
   update(dt, input, vortexWind, audio) {
@@ -214,56 +132,56 @@ export class Vehicle {
       this.lateralVel = damp(this.lateralVel, 0, 1.2, dt);
     }
 
-    const maxSpeed = this.boost ? VEHICLE.boostSpeed : VEHICLE.maxSpeed;
+    const maxSpeed = this.boost ? this.tuning.boostSpeed : this.tuning.maxSpeed;
 
     // ---- longitudinal ----
     if (!this.disabled) {
       let accel = 0;
       if (throttleRaw > 0) {
-        accel = throttleRaw * VEHICLE.accel * (1 - clamp(Math.abs(this.speed) / maxSpeed, 0, 1));
+        accel = throttleRaw * this.tuning.accel * (1 - clamp(Math.abs(this.speed) / maxSpeed, 0, 1));
       } else if (throttleRaw < 0) {
-        accel = this.speed > 2 ? throttleRaw * VEHICLE.brakeForce : throttleRaw * VEHICLE.accel * 0.5;
+        accel = this.speed > 2 ? throttleRaw * this.tuning.brakeForce : throttleRaw * this.tuning.accel * 0.5;
       }
       this.speed += accel * dt;
     }
 
     const dragAccel =
-      VEHICLE.rollResist +
-      VEHICLE.engineDrag * this.speed * this.speed +
+      this.tuning.rollResist +
+      this.tuning.engineDrag * this.speed * this.speed +
       (handbrake ? 16 : 0);
     const dv = dragAccel * dt;
     if (Math.abs(this.speed) <= dv) this.speed = 0;
     else this.speed -= Math.sign(this.speed) * dv;
 
-    this.speed = clamp(this.speed, -VEHICLE.reverseSpeed, maxSpeed);
+    this.speed = clamp(this.speed, -this.tuning.reverseSpeed, maxSpeed);
 
     // ---- steering ----
     const steerTarget = this.disabled ? 0 : steerRaw;
     this.steerSmooth = damp(this.steerSmooth, steerTarget, 9, dt);
     const speedFactor = clamp(Math.abs(this.speed) / 11, 0, 1);
-    const falloff = 1 - VEHICLE.steerFalloff * clamp(Math.abs(this.speed) / VEHICLE.maxSpeed, 0, 1);
-    const yawRate = this.steerSmooth * VEHICLE.steerRate * speedFactor * falloff * Math.sign(this.speed || 1);
+    const falloff = 1 - this.tuning.steerFalloff * clamp(Math.abs(this.speed) / this.tuning.maxSpeed, 0, 1);
+    const yawRate = this.steerSmooth * this.tuning.steerRate * speedFactor * falloff * Math.sign(this.speed || 1);
     this.heading += yawRate * dt;
 
     // ---- lateral slip (drift) ----
-    const grip = handbrake ? 2.2 : VEHICLE.grip;
-    const gripFactor = clamp(grip / VEHICLE.grip, 0, 1);
+    const grip = handbrake ? 2.2 : this.tuning.grip;
+    const gripFactor = clamp(grip / this.tuning.grip, 0, 1);
     this.lateralVel -= yawRate * this.speed * dt * (1 - gripFactor) * 0.5;
     this.lateralVel -= this.lateralVel * grip * dt;
     this.lateralVel = clamp(this.lateralVel, -14, 14);
 
     // ---- vortex wind push ----
     if (vortexWind) {
-      this.windVel.x += vortexWind.x * 0.55 * dt;
-      this.windVel.y += vortexWind.z * 0.55 * dt;
+      this.windVel.x += vortexWind.x * this.tuning.windPush * dt;
+      this.windVel.y += vortexWind.z * this.tuning.windPush * dt;
     }
     const windDamp = 1 - Math.exp(-1.1 * dt);
     this.windVel.x -= this.windVel.x * windDamp;
     this.windVel.y -= this.windVel.y * windDamp;
     const windMag = Math.hypot(this.windVel.x, this.windVel.y);
-    if (windMag > 22) {
-      this.windVel.x *= 22 / windMag;
-      this.windVel.y *= 22 / windMag;
+    if (windMag > this.tuning.windClamp) {
+      this.windVel.x *= this.tuning.windClamp / windMag;
+      this.windVel.y *= this.tuning.windClamp / windMag;
     }
     this.shake = damp(this.shake, clamp((windMag - 6) / 16, 0, 1), 4, dt);
 
@@ -309,22 +227,29 @@ export class Vehicle {
     this.body.rotation.z = this.rollVis;
     this.body.position.y = damp(this.body.position.y, Math.abs(this.speed) * 0.0016, 5, dt);
 
-    this.wheelSpin += (this.speed / WHEEL_R) * dt;
+    this.wheelSpin += (this.speed / this.dims.wheelR) * dt;
     for (const w of this.wheels) {
       w.tire.rotation.z = this.wheelSpin;
       w.pivot.rotation.y = damp(w.pivot.rotation.y, w.isFront ? this.steerSmooth * 0.42 : 0, 10, dt);
     }
 
-    // ---- strobes + radar ----
+    // ---- strobes, radar + ground anchors ----
     this.strobe += dt;
     const phase = Math.floor((this.strobe * 4) % 2);
     this.strobes[0].material.emissiveIntensity = phase === 0 ? 3.2 : 0.15;
     this.strobes[1].material.emissiveIntensity = phase === 1 ? 3.2 : 0.15;
     this.radar.rotation.y += dt * 1.6;
+    if (this.anemometer) this.anemometer.rotation.y += dt * 2.4;
+
+    if (this.hasSpikes) {
+      const anchored = handbrake && Math.abs(this.speed) < 1;
+      this.spikeDeploy = damp(this.spikeDeploy, anchored ? 1 : 0, 5, dt);
+      for (const s of this.spikes) s.mesh.position.lerpVectors(s.rest, s.out, this.spikeDeploy);
+    }
 
     // ---- audio ----
     if (audio) {
-      audio.setEngine(clamp(Math.abs(this.speed) / VEHICLE.maxSpeed, 0, 1), Math.abs(this.throttleInput));
+      audio.setEngine(clamp(Math.abs(this.speed) / this.tuning.maxSpeed, 0, 1), Math.abs(this.throttleInput));
     }
   }
 
@@ -332,7 +257,7 @@ export class Vehicle {
     for (const c of this.colliders) {
       const dx = this.pos.x - c.x;
       const dz = this.pos.z - c.z;
-      const minDist = c.r + 2.4;
+      const minDist = c.r + this.dims.colliderPad;
       const d = Math.hypot(dx, dz);
       if (d < minDist && d > 0.001) {
         const nx = dx / d;
@@ -341,8 +266,8 @@ export class Vehicle {
         this.pos.z = c.z + nz * minDist;
         const impact = Math.abs((this.pos.x - prevX) * nx + (this.pos.z - prevZ) * nz);
         const closing = (this.speed * (Math.cos(this.heading) * nx + Math.sin(this.heading) * nz));
-        if (closing < -VEHICLE.crashSpeed * 0.5) {
-          this.damage(clamp((-closing - VEHICLE.crashSpeed * 0.5) * 1.6, 0, 28));
+        if (closing < -this.tuning.crashSpeed * 0.5) {
+          this.damage(clamp((-closing - this.tuning.crashSpeed * 0.5) * 1.6, 0, 28));
           this.shake = 1;
         }
         this.speed *= -0.18;
@@ -394,7 +319,7 @@ export class Vehicle {
     const bx = Math.cos(yaw);
     const bz = Math.sin(yaw);
     const groundY = this.terrain.height(this.pos.x, this.pos.z);
-    const speedNorm = clamp(Math.abs(this.speed) / VEHICLE.maxSpeed, 0, 1);
+    const speedNorm = clamp(Math.abs(this.speed) / this.tuning.maxSpeed, 0, 1);
 
     let desired = this._tmp;
     let lookAt = this._camLook;
@@ -403,8 +328,8 @@ export class Vehicle {
       case 'HOOD': {
         const hx = this.pos.x + fx * 0.35;
         const hz = this.pos.z + fz * 0.35;
-        desired.set(hx, groundY + 2.62, hz);
-        lookAt.set(this.pos.x + fx * 40, groundY + 2.0 + Math.sin(this.camPitch) * 24, this.pos.z + fz * 40);
+        desired.set(hx, groundY + this.dims.cam.hoodHeight, hz);
+        lookAt.set(this.pos.x + fx * 40, groundY + this.dims.cam.lookHeight + Math.sin(this.camPitch) * 24, this.pos.z + fz * 40);
         camera.position.lerp(desired, 1 - Math.exp(-22 * dt));
         break;
       }
@@ -430,11 +355,11 @@ export class Vehicle {
         break;
       }
       default: {
-        const dist = 9.5 + speedNorm * 2.6;
+        const dist = this.dims.cam.dist + speedNorm * 2.6;
         const ang = yaw + Math.PI;
-        const height = 3.6 + speedNorm * 0.7;
+        const height = this.dims.cam.height + speedNorm * 0.7;
         desired.set(this.pos.x + Math.cos(ang) * dist, groundY + height, this.pos.z + Math.sin(ang) * dist);
-        lookAt.set(this.pos.x + bx * 7, groundY + 2.1, this.pos.z + bz * 7);
+        lookAt.set(this.pos.x + bx * 7, groundY + this.dims.cam.lookHeight, this.pos.z + bz * 7);
         camera.position.lerp(desired, 1 - Math.exp(-9 * dt));
         break;
       }
